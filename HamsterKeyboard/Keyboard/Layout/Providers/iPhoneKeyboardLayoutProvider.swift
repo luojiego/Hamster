@@ -3,10 +3,12 @@ import KeyboardKit
 
 class HamsteriPhoneKeyboardLayoutProvider: iPhoneKeyboardLayoutProvider {
   let appSettings: HamsterAppSettings
+  let rimeEngine: RimeEngine
   let hamsterInputSetProvider: HamsterInputSetProvider
 
-  init(inputSetProvider: HamsterInputSetProvider, appSettings: HamsterAppSettings) {
+  init(inputSetProvider: HamsterInputSetProvider, appSettings: HamsterAppSettings, rimeEngine: RimeEngine) {
     self.appSettings = appSettings
+    self.rimeEngine = rimeEngine
     self.hamsterInputSetProvider = inputSetProvider
     super.init(inputSetProvider: inputSetProvider)
   }
@@ -114,14 +116,27 @@ class HamsteriPhoneKeyboardLayoutProvider: iPhoneKeyboardLayoutProvider {
       if context.keyboardType == .symbolic && type.isAlphabetic {
         return lastRowNoCharacterButtonWidth(for: context)
       }
-      return bottomSystemButtonWidth(for: context)
+      return lowerSystemButtonWidth(for: context)
     case .nextKeyboard: return bottomSystemButtonWidth(for: context)
     case .primary: return context.isGridViewKeyboardType ? .input : lastRowNoCharacterButtonWidth(for: context)
     case .shift: return lowerSystemButtonWidth(for: context)
     case .custom: return .input
+    case .image:
+      // Logger.shared.log.debug("iPhoneKeyboardLayoutProvider itemSizeWidth(): image action, \(description), keyboardImageName = \(keyboardImageName), imageName = \(imageName)")
+      return .input
     default: return .available
     }
   }
+
+  // TODO: 通过此方法调节键盘高度
+  // 注意: 这里是行高
+  /**
+   Get a layout item height for the provided parameters.
+   */
+//  override func itemSizeHeight(for action: KeyboardAction, row: Int, index: Int, context: KeyboardContext) -> CGFloat {
+//    let config = KeyboardLayoutConfiguration.standard(for: context)
+//    return config.rowHeight
+//  }
 
   // MARK: - iPhone Specific
 
@@ -147,15 +162,42 @@ class HamsteriPhoneKeyboardLayoutProvider: iPhoneKeyboardLayoutProvider {
     if appSettings.showSpaceLeftButton {
       result.append(.custom(named: appSettings.spaceLeftButtonValue))
     }
+
+    // 空格左侧添加中英文切换按键
+    if appSettings.showSpaceRightSwitchLanguageButton && appSettings.switchLanguageButtonInSpaceLeft && context.keyboardType.isAlphabetic {
+      result.append(switchLanguageButtonAction())
+    }
+
     result.append(.space)
+
     if appSettings.showSpaceRightButton {
       result.append(.custom(named: appSettings.spaceRightButtonValue))
+    }
+
+    // 空格右侧添加中英文切换按键
+    if appSettings.showSpaceRightSwitchLanguageButton && !appSettings.switchLanguageButtonInSpaceLeft && context.keyboardType.isAlphabetic {
+      result.append(switchLanguageButtonAction())
     }
 
     // 根据当前上下文显示不同功能的回车键
     result.append(keyboardReturnAction(for: context))
 
     return result
+  }
+
+  // 中英文切换按钮Action
+  func switchLanguageButtonAction() -> KeyboardAction {
+    if rimeEngine.asciiMode {
+      return .image(
+        description: "中英切换",
+        keyboardImageName: "",
+        imageName: KeyboardConstant.ImageName.EnglishLanguageImageName)
+    } else {
+      return .image(
+        description: "中英切换",
+        keyboardImageName: "",
+        imageName: KeyboardConstant.ImageName.ChineseLanguageImageName)
+    }
   }
 
   override open func keyboardSwitchActionForBottomInputRow(for context: KeyboardContext) -> KeyboardAction? {
@@ -227,7 +269,7 @@ private extension HamsteriPhoneKeyboardLayoutProvider {
    最后一行非字母按钮宽度
    */
   func lastRowNoCharacterButtonWidth(for context: KeyboardContext) -> KeyboardLayoutItemWidth {
-    .percentage(isPortrait(context) ? 0.17 : 0.195)
+    .percentage(isPortrait(context) ? 0.19 : 0.195)
   }
 
   /**

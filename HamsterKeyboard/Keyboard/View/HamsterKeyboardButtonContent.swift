@@ -30,7 +30,7 @@ struct HamsterKeyboardActionButtonContent: View {
     self.appSettings = appSettings
 
     let translateFunctionText = { (name: String) -> String in
-      if name.hasPrefix("#"), let slidFunction = SlideFuction(rawValue: name) {
+      if name.hasPrefix("#"), let slidFunction = SlideFunction(rawValue: name) {
         return slidFunction.text
       }
       return name
@@ -99,7 +99,8 @@ private extension HamsterKeyboardActionButtonContent {
     if action == .space {
       spaceView
     } else if let image = appearance.buttonImage(for: action) {
-      image.scaleEffect(appearance.buttonImageScaleFactor(for: action))
+      image
+        .scaleEffect(appearance.buttonImageScaleFactor(for: action))
     } else if let text = appearance.buttonText(for: action) {
       textView(for: text)
     } else {

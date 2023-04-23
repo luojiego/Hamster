@@ -40,14 +40,23 @@ open class HamsterKeyboardViewController: KeyboardInputViewController {
     self.keyboardLayoutProvider = HamsterStandardKeyboardLayoutProvider(
       keyboardContext: self.keyboardContext,
       inputSetProvider: self.hamsterInputSetProvider,
-      appSettings: self.appSettings
+      appSettings: self.appSettings,
+      rimeEngine: self.rimeEngine
     )
-    self.keyboardBehavior = HamsterKeyboardBehavior(keyboardContext: self.keyboardContext)
+    
+    // 键盘默认行为: 这里可以做如改变键盘的类型
+    self.keyboardBehavior = HamsterKeyboardBehavior(
+      keyboardContext: self.keyboardContext,
+      appSettings: self.appSettings,
+      rimeEngine: self.rimeEngine
+    )
+    
     // TODO: 长按按钮设置
     self.calloutActionProvider = HamsterCalloutActionProvider(
       keyboardContext: self.keyboardContext,
       rimeEngine: self.rimeEngine
     )
+    
     // 键盘反馈设置
     self.keyboardFeedbackSettings = KeyboardFeedbackSettings(
       audioConfiguration: AudioFeedbackConfiguration(),
@@ -82,10 +91,10 @@ open class HamsterKeyboardViewController: KeyboardInputViewController {
   
   override public func viewWillSetupKeyboard() {
     self.log.debug("viewWillSetupKeyboard() begin")
-    let alphabetKeyboard = AlphabetKeyboard(keyboardInputViewController: self)
+    let hamsterKeyboard = HamsterKeyboard(keyboardInputViewController: self)
       .environmentObject(self.rimeEngine)
       .environmentObject(self.appSettings)
-    setup(with: alphabetKeyboard)
+    setup(with: hamsterKeyboard)
   }
   
   override public func viewDidDisappear(_ animated: Bool) {
@@ -94,7 +103,6 @@ open class HamsterKeyboardViewController: KeyboardInputViewController {
   
   public func dealloc() {
     self.log.debug("HamsterKeyboardViewController dealloc")
-    self.rimeEngine.shutdownRime()
   }
   
   private func setupAppSettings() {
@@ -118,29 +126,17 @@ open class HamsterKeyboardViewController: KeyboardInputViewController {
       }
       .store(in: &self.cancellables)
     
-    // 输入方案变更
-    self.appSettings.$rimeInputSchema
-      .receive(on: RunLoop.main)
-      .sink { [weak self] schemaName in
-        guard let self = self else { return }
-        // 设置用户选择方案
-        let setSchemaHandled = self.rimeEngine.setSchema(schemaName)
-        Logger.shared.log.debug("combine $rimeInputSchema:  \(schemaName), setSchemaHandled: \(setSchemaHandled)")
-      }
-      .store(in: &self.cancellables)
-    
-    // 配色方案变更
-    self.appSettings.$enableRimeColorSchema
-      .combineLatest(self.appSettings.$rimeColorSchema)
-      .receive(on: RunLoop.main)
-      .sink { [weak self] enable, schemaName in
-        guard let self = self else { return }
-        self.log.info("combine $enableRimeColorSchema and $rimeInputSchema: \(enable), \(schemaName)")
-        if enable {
-          self.rimeEngine.currentColorSchema = self.getCurrentColorSchema()
+    // 候选输入内嵌功能
+    if self.appSettings.enableInputEmbeddedMode {
+      self.rimeEngine.$userInputKey
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] userInputKey in
+          guard let self = self else { return }
+          self.log.info("combine $userInputKey: \(userInputKey)")
+          self.textDocumentProxy.setMarkedText(userInputKey, selectedRange: NSMakeRange(userInputKey.count, 0))
         }
-      }
-      .store(in: &self.cancellables)
+        .store(in: &self.cancellables)
+    }
   }
   
   private func setupRimeEngine() {
@@ -170,8 +166,34 @@ open class HamsterKeyboardViewController: KeyboardInputViewController {
       self.appSettings.rimeNeedOverrideUserDataDirectory = false
     }
     self.rimeEngine.createSession()
-    self.rimeEngine.maxCandidateCount = self.appSettings.rimeMaxCandidateSize
+    Logger.shared.log.debug("rime session: \(self.rimeEngine.session)")
+    self.changeRimeInputSchema()
+    self.changeRimeColorSchema()
     self.rimeEngine.reset()
+    self.rimeEngine.maxCandidateCount = self.appSettings.rimeMaxCandidateSize
+  }
+  
+  // MARK: - Text And Selection Change
+  
+  override open func selectionWillChange(_ textInput: UITextInput?) {
+    super.selectionWillChange(textInput)
+  }
+  
+  override open func selectionDidChange(_ textInput: UITextInput?) {
+    super.selectionDidChange(textInput)
+  }
+  
+  override open func textWillChange(_ textInput: UITextInput?) {
+    super.textWillChange(textInput)
+  }
+  
+  override open func textDidChange(_ textInput: UITextInput?) {
+    super.textDidChange(textInput)
+    // TODO: 这里添加英文自动转大写功能, 参考: KeyboardContext.preferredAutocapitalizedKeyboardType
+    
+    if (!self.textDocumentProxy.hasText) {
+      self.rimeEngine.reset()
+    }
   }
   
   // MARK: - KeyboardController
@@ -198,6 +220,24 @@ open class HamsterKeyboardViewController: KeyboardInputViewController {
 }
 
 extension HamsterKeyboardViewController {
+  // 设置用户输入方案
+  func changeRimeInputSchema() {
+    let setInputSchemaHandle = self.rimeEngine.setSchema(self.appSettings.rimeInputSchema)
+    self.log.info("self.rimeEngine set schema: \(self.appSettings.rimeInputSchema), setInputSchemaHandle = \(setInputSchemaHandle)")
+  }
+  
+  // 设置Rime颜色方案
+  func changeRimeColorSchema() {
+    let enableColorSchema = self.appSettings.enableRimeColorSchema
+    let rimeColorSchemaName = self.appSettings.rimeColorSchema
+    self.log.info("enableRimeColorSchema and rimeInputSchema: \(enableColorSchema), \(rimeColorSchemaName)")
+    if enableColorSchema {
+      DispatchQueue.main.async {
+        self.rimeEngine.currentColorSchema = self.getCurrentColorSchema()
+      }
+    }
+  }
+  
   // 简繁切换
   func switchTraditionalSimplifiedChinese() {
     self.rimeEngine.simplifiedChineseMode.toggle()
@@ -205,7 +245,21 @@ extension HamsterKeyboardViewController {
   }
   
   // 中英切换
-  func switchEnglishChinese() {
+  func switchEnglishChinese(_ imageName: String = "") {
+//    中文模式下, 在已经有候选字的情况下, 切换英文模式.
+//
+//    情况1. 清空中文输入, 开始英文输入
+//    self.rimeEngine.reset()
+    
+//    情况2. 候选栏字母上屏, 并开启英文输入
+    var userInputKey = self.rimeEngine.userInputKey
+    if !userInputKey.isEmpty {
+      userInputKey.removeAll(where: { $0 == " " })
+      self.textDocumentProxy.insertText(userInputKey)
+    }
+    self.rimeEngine.reset()
+//    情况3. 首选候选字上屏, 并开启英文输入
+//    _ = self.candidateTextOnScreen()
     self.rimeEngine.asciiMode.toggle()
   }
   

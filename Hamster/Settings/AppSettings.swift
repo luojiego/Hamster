@@ -1,6 +1,6 @@
 import Foundation
 
-enum SlideFuction: String, CaseIterable, Equatable, Identifiable {
+enum SlideFunction: String, CaseIterable, Equatable, Identifiable {
   var id: Self {
     self
   }
@@ -35,12 +35,15 @@ public enum HapticIntensity: Int, CaseIterable, Equatable, Identifiable {
     return rawValue
   }
 
+  case ultraLightImpact
   case lightImpact
   case mediumImpact
   case heavyImpact
 
   var text: String {
     switch self {
+    case .ultraLightImpact:
+      return "超轻"
     case .lightImpact:
       return "轻"
     case .mediumImpact:
@@ -89,6 +92,11 @@ private enum HamsterAppSettingKeys: String {
   // 空格右边按键键值
   case spaceRightButtonValue = "app.keyboard.spaceRightButtonValue"
 
+  // 是否显示空格右边中英文切换键
+  case showSpaceRightSwitchLanguageButton = "app.keyboard.showSpaceRightSwitchLanguageButton"
+  // 中英切换按键位于空格是否位于左侧
+  case switchLanguageButtonInSpaceLeft = "app.keyboard.switchLanguageButtonInSpaceLeft"
+
   // rime 候选字最大数量
   case rimeMaxCandidateSize = "rime.maxCandidateSize"
 
@@ -113,6 +121,12 @@ private enum HamsterAppSettingKeys: String {
 
   // 启用数字九宫格键盘
   case enableNumberNineGrid = "keyboard.enableNumberNineGrid"
+  
+  // 键盘是否自动小写
+  case enableKeyboardAutomaticallyLowercase = "keyboard.enableKeyboardAutomaticallyLowercase"
+  
+  // 输入嵌入模式
+  case enableInputEmbeddedMode = "keyboard.enableInputEmbeddedMode"
 }
 
 public class HamsterAppSettings: ObservableObject {
@@ -132,10 +146,12 @@ public class HamsterAppSettings: ObservableObject {
       HamsterAppSettingKeys.showSpaceLeftButton.rawValue: true,
       HamsterAppSettingKeys.spaceLeftButtonValue.rawValue: ",",
       HamsterAppSettingKeys.showSpaceRightButton.rawValue: true,
+      HamsterAppSettingKeys.showSpaceRightSwitchLanguageButton.rawValue: false,
+      HamsterAppSettingKeys.switchLanguageButtonInSpaceLeft.rawValue: false,
       HamsterAppSettingKeys.spaceRightButtonValue.rawValue: ".",
       HamsterAppSettingKeys.rimeMaxCandidateSize.rawValue: 100,
       HamsterAppSettingKeys.rimeCandidateTitleFontSize.rawValue: 20,
-      HamsterAppSettingKeys.rimeCandidateCommentFontSize.rawValue: 12,
+      HamsterAppSettingKeys.rimeCandidateCommentFontSize.rawValue: 14,
       HamsterAppSettingKeys.rimeInputSchema.rawValue: "",
       HamsterAppSettingKeys.rimeEnableColorSchema.rawValue: false,
       HamsterAppSettingKeys.rimeColorSchema.rawValue: "",
@@ -144,12 +160,14 @@ public class HamsterAppSettings: ObservableObject {
       HamsterAppSettingKeys.showKeyboardUpAndDownSlideSymbol.rawValue: true,
       HamsterAppSettingKeys.keyboardUpAndDownSlideSymbol.rawValue: [:] as [String: String],
       HamsterAppSettingKeys.enableNumberNineGrid.rawValue: false,
+      HamsterAppSettingKeys.enableKeyboardAutomaticallyLowercase.rawValue: false,
+      HamsterAppSettingKeys.enableInputEmbeddedMode.rawValue: false,
     ])
 
     self.isFirstLaunch = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.appFirstLaunch.rawValue)
     self.showKeyPressBubble = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.showKeyPressBubble.rawValue)
     self.switchTraditionalChinese = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.switchTraditionalChinese.rawValue)
-    self.slideBySapceButton = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.slideBySpaceButton.rawValue)
+    self.slideBySpaceButton = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.slideBySpaceButton.rawValue)
     self.enableKeyboardFeedbackSound = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.enableKeyboardFeedbackSound.rawValue)
     self.enableKeyboardFeedbackHaptic = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.enableKeyboardFeedbackHaptic.rawValue)
     self.keyboardFeedbackHapticIntensity = UserDefaults.hamsterSettingsDefault.integer(forKey: HamsterAppSettingKeys.keyboardFeedbackHapticIntensity.rawValue)
@@ -158,6 +176,8 @@ public class HamsterAppSettings: ObservableObject {
     self.spaceLeftButtonValue = UserDefaults.hamsterSettingsDefault.string(forKey: HamsterAppSettingKeys.spaceLeftButtonValue.rawValue) ?? ""
     self.showSpaceRightButton = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.showSpaceRightButton.rawValue)
     self.spaceRightButtonValue = UserDefaults.hamsterSettingsDefault.string(forKey: HamsterAppSettingKeys.spaceRightButtonValue.rawValue) ?? ""
+    self.showSpaceRightSwitchLanguageButton = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.showSpaceRightSwitchLanguageButton.rawValue)
+    self.switchLanguageButtonInSpaceLeft = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.switchLanguageButtonInSpaceLeft.rawValue)
     self.rimeMaxCandidateSize = Int32(UserDefaults.hamsterSettingsDefault.integer(forKey: HamsterAppSettingKeys.rimeMaxCandidateSize.rawValue))
     self.rimeCandidateTitleFontSize = UserDefaults.hamsterSettingsDefault.integer(forKey: HamsterAppSettingKeys.rimeCandidateTitleFontSize.rawValue)
     self.rimeCandidateCommentFontSize = UserDefaults.hamsterSettingsDefault.integer(forKey: HamsterAppSettingKeys.rimeCandidateCommentFontSize.rawValue)
@@ -169,6 +189,8 @@ public class HamsterAppSettings: ObservableObject {
     self.showKeyboardUpAndDownSlideSymbol = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.showKeyboardUpAndDownSlideSymbol.rawValue)
     self.keyboardUpAndDownSlideSymbol = UserDefaults.hamsterSettingsDefault.object(forKey: HamsterAppSettingKeys.keyboardUpAndDownSlideSymbol.rawValue) as! [String: String]
     self.enableNumberNineGrid = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.enableNumberNineGrid.rawValue)
+    self.enableKeyboardAutomaticallyLowercase = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.enableKeyboardAutomaticallyLowercase.rawValue)
+    self.enableInputEmbeddedMode = UserDefaults.hamsterSettingsDefault.bool(forKey: HamsterAppSettingKeys.enableInputEmbeddedMode.rawValue)
   }
 
   // App是否首次运行
@@ -203,11 +225,11 @@ public class HamsterAppSettings: ObservableObject {
 
   // 空格滑动
   @Published
-  var slideBySapceButton: Bool {
+  var slideBySpaceButton: Bool {
     didSet {
-      Logger.shared.log.info(["AppSettings, slideBySapceButton": slideBySapceButton])
+      Logger.shared.log.info(["AppSettings, slideBySapceButton": slideBySpaceButton])
       UserDefaults.hamsterSettingsDefault.set(
-        slideBySapceButton, forKey: HamsterAppSettingKeys.slideBySpaceButton.rawValue)
+        slideBySpaceButton, forKey: HamsterAppSettingKeys.slideBySpaceButton.rawValue)
     }
   }
 
@@ -290,6 +312,26 @@ public class HamsterAppSettings: ObservableObject {
         spaceRightButtonValue, forKey: HamsterAppSettingKeys.spaceRightButtonValue.rawValue)
     }
   }
+
+  // 是否显示空格右边中英切换按键
+  @Published
+  var showSpaceRightSwitchLanguageButton: Bool {
+    didSet {
+      Logger.shared.log.info(["AppSettings, showSpaceRightSwitchLanguageButton": showSpaceRightSwitchLanguageButton])
+      UserDefaults.hamsterSettingsDefault.set(
+        showSpaceRightSwitchLanguageButton, forKey: HamsterAppSettingKeys.showSpaceRightSwitchLanguageButton.rawValue)
+    }
+  }
+  // 中英切换按键位于空格左侧: true = 左侧 false = 右侧
+  @Published
+  var switchLanguageButtonInSpaceLeft: Bool {
+    didSet {
+      Logger.shared.log.info(["AppSettings, switchLanguageButtonInSpaceLeft": switchLanguageButtonInSpaceLeft])
+      UserDefaults.hamsterSettingsDefault.set(
+        switchLanguageButtonInSpaceLeft, forKey: HamsterAppSettingKeys.switchLanguageButtonInSpaceLeft.rawValue)
+    }
+  }
+
 
   @Published
   var rimeMaxCandidateSize: Int32 {
@@ -397,6 +439,26 @@ public class HamsterAppSettings: ObservableObject {
       Logger.shared.log.info(["AppSettings, enableNumberNineGrid": enableNumberNineGrid])
       UserDefaults.hamsterSettingsDefault.set(
         enableNumberNineGrid, forKey: HamsterAppSettingKeys.enableNumberNineGrid.rawValue)
+    }
+  }
+  
+  // 键盘: 启用键盘自动转小写
+  @Published
+  var enableKeyboardAutomaticallyLowercase: Bool {
+    didSet {
+      Logger.shared.log.info(["AppSettings, enableKeyboardAutomaticallyLowercase": enableKeyboardAutomaticallyLowercase])
+      UserDefaults.hamsterSettingsDefault.set(
+        enableKeyboardAutomaticallyLowercase, forKey: HamsterAppSettingKeys.enableKeyboardAutomaticallyLowercase.rawValue)
+    }
+  }
+  
+  // 键盘: 启用输入嵌入模式
+  @Published
+  var enableInputEmbeddedMode: Bool {
+    didSet {
+      Logger.shared.log.info(["AppSettings, enableInputEmbeddedMode": enableInputEmbeddedMode])
+      UserDefaults.hamsterSettingsDefault.set(
+        enableInputEmbeddedMode, forKey: HamsterAppSettingKeys.enableInputEmbeddedMode.rawValue)
     }
   }
 }

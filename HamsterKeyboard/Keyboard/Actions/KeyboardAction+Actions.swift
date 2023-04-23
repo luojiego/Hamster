@@ -19,18 +19,7 @@ extension KeyboardAction {
    The action that by default should be triggered when the
    action is double tapped.
    */
-  var hamsterStandardDoubleTapAction: GestureAction? {
-    switch self {
-    case .shift(let currentState):
-      return {
-        switch currentState {
-        case .lowercased: $0?.setKeyboardType(.alphabetic(.capsLocked))
-        case .auto, .capsLocked, .uppercased: $0?.setKeyboardType(.alphabetic(.lowercased))
-        }
-      }
-    default: return nil
-    }
-  }
+  var hamsterStandardDoubleTapAction: GestureAction? { nil }
 
   /**
    The action that by default should be triggered when the
@@ -38,7 +27,7 @@ extension KeyboardAction {
    */
   var hamsterStandardLongPressAction: GestureAction? {
     switch self {
-    case .space: return { _ in }
+    case .space: return nil
     default: return nil
     }
   }
@@ -63,18 +52,11 @@ extension KeyboardAction {
     switch self {
     case .character(let char), .characterMargin(let char): return {
         $0?.insertText(char)
-        if let ivc = $0, let ivc = ivc as? HamsterKeyboardViewController {
-          if ivc.keyboardContext.keyboardType.isAlphabetic(.uppercased) {
-            ivc.setKeyboardType(.alphabetic(.lowercased))
-          }
-        }
       }
-//    case .characterMargin(let char): return { $0?.insertText(char) }
     case .dismissKeyboard: return { $0?.dismissKeyboard() }
     case .emoji(let emoji): return {
-//      $0?.insertText(emoji.char)
         if let ivc = $0, let ivc = ivc as? HamsterKeyboardViewController {
-          ivc.keyboardContext.textDocumentProxy.insertText(emoji.char)
+          ivc.textDocumentProxy.insertText(emoji.char)
         }
       }
     case .moveCursorBackward: return { $0?.adjustTextPosition(byCharacterOffset: -1) }
@@ -105,6 +87,20 @@ extension KeyboardAction {
       }
     // 自定义按键动作处理
     case .custom(let name): return { $0?.insertText(name) }
+    case .image(_, _, let imageName):
+      if imageName.isEmpty {
+        return nil
+      }
+      return {
+        guard let ivc = $0, let ivc = ivc as? HamsterKeyboardViewController else {
+          return
+        }
+        switch imageName {
+        case KeyboardConstant.ImageName.ChineseLanguageImageName, KeyboardConstant.ImageName.EnglishLanguageImageName:
+          ivc.switchEnglishChinese(imageName)
+        default: return
+        }
+      }
     default: return nil
     }
   }

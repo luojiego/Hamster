@@ -11,6 +11,7 @@ import SwiftUI
 @available(iOS 14, *)
 struct HamsterAutocompleteToolbar: View {
   weak var ivc: HamsterKeyboardViewController?
+  let style: AutocompleteToolbarStyle
 
   @EnvironmentObject
   private var keyboardContext: KeyboardContext
@@ -21,23 +22,10 @@ struct HamsterAutocompleteToolbar: View {
   @EnvironmentObject
   private var rimeEngine: RimeEngine
 
-  var style: AutocompleteToolbarStyle
-
-  init(ivc: HamsterKeyboardViewController?) {
+  init(ivc: HamsterKeyboardViewController?, style: AutocompleteToolbarStyle) {
     weak var keyboardViewController = ivc
     self.ivc = keyboardViewController
-    self.style = AutocompleteToolbarStyle(
-      item: AutocompleteToolbarItemStyle(
-        titleFont: .system(
-          size: CGFloat(ivc?.appSettings.rimeCandidateTitleFontSize ?? 20)
-        ),
-        titleColor: .primary,
-        subtitleFont: .system(
-          size: CGFloat(ivc?.appSettings.rimeCandidateTitleFontSize ?? 12)
-        ),
-        subtitleColor: .primary
-      )
-    )
+    self.style = style
   }
 
   var hamsterColor: ColorSchema {
@@ -45,29 +33,31 @@ struct HamsterAutocompleteToolbar: View {
   }
 
   var body: some View {
-    GeometryReader { proxy in
-      VStack(alignment: .leading, spacing: 0) {
-        // 拼写区域
+    VStack(alignment: .leading, spacing: 0) {
+      // 拼写区域: 判断是否启用内嵌模式
+      if !appSettings.enableInputEmbeddedMode {
         HStack {
           Text(rimeEngine.userInputKey)
             .font(style.item.subtitleFont)
             .foregroundColor(hamsterColor.hilitedTextColor)
-            .padding(2)
-            .minimumScaleFactor(0.5)
+            .minimumScaleFactor(0.7)
           Spacer()
         }
         .padding(.leading, 5)
-        .frame(height: 10)
+        .padding(.vertical, 2)
+        .frame(minHeight: 0, maxHeight: 10)
+      }
+      // 候选区
+      CandidateHStackView(style: style, hamsterColor: hamsterColor, suggestions: $rimeEngine.suggestions) { [weak ivc] item in
+        guard let ivc = ivc else { return }
+        ivc.selectCandidateIndex(index: item.index)
+      }
+      .padding(.leading, 1)
+      .padding(.trailing, 50)
+      .frame(minHeight: 40, maxHeight: 50)
+      .frame(minWidth: 0, maxWidth: .infinity)
 
-        // 候选区
-        CandidateHStackView(style: style, hamsterColor: hamsterColor, suggestions: $rimeEngine.suggestions) { [weak ivc] item in
-          guard let ivc = ivc else { return }
-          ivc.selectCandidateIndex(index: item.index)
-        }
-        .frame(height: proxy.size.height - 10)
-        .frame(minWidth: 0, maxWidth: .infinity)
-        
-        // TODO: 使用 ScrollView + LazyHStack 存在误触问题
+      // TODO: 使用 ScrollView + LazyHStack 存在误触问题
 //        ScrollView(.horizontal, showsIndicators: false) {
 //          LazyHStack(spacing: 0, pinnedViews: .sectionFooters) {
 //            ForEach(rimeEngine.suggestions) { item in
@@ -106,9 +96,7 @@ struct HamsterAutocompleteToolbar: View {
 //        .frame(height: proxy.size.height - 10)
 //        .frame(minWidth: 0, maxWidth: .infinity)
 //        .padding(.leading, 2)
-      }
     }
-    .frame(minWidth: 0, maxWidth: .infinity)
     .background(hamsterColor.backColor)
   }
 }
