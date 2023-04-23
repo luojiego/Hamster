@@ -287,8 +287,8 @@ public extension RimeEngine {
     return rimeAPI.setOption(session, andOption: simplifiedChineseKey, andValue: !value)
   }
 
-  // context响应
-  func contextReact() {
+  // 同步context: 主要是获取当前引擎提供的候选文字, 同时更新rime published属性 userInputKey
+  func syncContext() {
     let context = context()
 
     if context.composition != nil {
@@ -414,9 +414,9 @@ public extension RimeEngine {
     return rimeAPI.selectSchema(session, andSchameId: schemaId)
   }
 
-  func colorSchema() -> [ColorSchema] {
-    // open squirrel.yaml
-    let cfg = rimeAPI.openConfig("squirrel")
+  func colorSchema(_ useSquirrel: Bool = true) -> [ColorSchema] {
+    // open squirrel.yaml or hamster.yaml
+    let cfg = useSquirrel ? rimeAPI.openConfig("squirrel") : rimeAPI.openConfig("hamster")
     guard cfg != nil else {
       return []
     }
@@ -447,9 +447,9 @@ public extension RimeEngine {
     }
   }
 
-  func currentColorSchemaName() -> String {
-    // open squirrel.yaml
-    let config = rimeAPI.openConfig("squirrel")
+  func currentColorSchemaName(_ useSquirrel: Bool = true) -> String {
+    // open squirrel.yaml or hamster.yaml
+    let config = useSquirrel ? rimeAPI.openConfig("squirrel") : rimeAPI.openConfig("hamster")
     if config == nil {
       return ""
     }
